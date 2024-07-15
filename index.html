@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Responsive Split Screen iFrames</title>
+    <style>
+      body, html {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background-color: #1e1e1e;
+        color: #ffffff;
+        overflow: hidden;
+      }
+      .container {
+        display: flex;
+        height: 100%;
+        padding-left: 60px;
+        box-sizing: border-box;
+        transition: padding-left 0.3s ease;
+      }
+      .container.sidebar-open {
+        padding-left: 300px;
+      }
+      .frame-container {
+        flex: 1;
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+      }
+      .input-container {
+        display: flex;
+        margin-bottom: 10px;
+      }
+      input[type="text"] {
+        flex-grow: 1;
+        padding: 10px;
+        background-color: #2d2d2d;
+        border: none;
+        color: #ffffff;
+        border-radius: 20px;
+        font-size: 14px;
+        outline: none;
+      }
+      iframe {
+        flex-grow: 1;
+        border: none;
+        background-color: #ffffff;
+        border-radius: 10px;
+      }
+      .offcanvas {
+        position: fixed;
+        top: 0;
+        left: -240px;
+        width: 240px;
+        height: 100%;
+        background-color: #2d2d2d;
+        transition: left 0.3s ease;
+        padding: 20px;
+        box-sizing: border-box;
+        overflow-y: auto;
+        z-index: 1000;
+      }
+      .offcanvas.active {
+        left: 0;
+      }
+      .bookmark {
+        background-color: #3a3a3a;
+        color: white;
+        padding: 10px;
+        margin: 10px 0;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 0.9em;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: background-color 0.2s ease;
+      }
+      .bookmark:hover {
+        background-color: #4a4a4a;
+      }
+      .bookmark-text {
+        flex-grow: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .delete-bookmark {
+        background-color: transparent;
+        color: #ff6b6b;
+        border: none;
+        padding: 5px;
+        border-radius: 50%;
+        cursor: pointer;
+        margin-left: 5px;
+        font-size: 12px;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+      }
+      .bookmark:hover .delete-bookmark {
+        opacity: 1;
+      }
+      #toggleBookmarks, #addBookmark {
+        position: fixed;
+        left: 10px;
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        cursor: pointer;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        z-index: 1001;
+        transition: left 0.3s ease, background-color 0.2s ease;
+      }
+      #toggleBookmarks:hover, #addBookmark:hover {
+        background-color: #45a049;
+      }
+      #toggleBookmarks {
+        top: 10px;
+      }
+      #addBookmark {
+        top: 60px;
+      }
+      .sidebar-open #toggleBookmarks, .sidebar-open #addBookmark {
+        left: 250px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container" id="mainContainer">
+      <div class="frame-container">
+        <div class="input-container">
+          <input type="text" id="url1" placeholder="Enter URL for left frame">
+        </div>
+        <iframe id="iframe1" src="about:blank" sandbox="allow-scripts allow-same-origin"></iframe>
+      </div>
+      <div class="frame-container">
+        <div class="input-container">
+          <input type="text" id="url2" placeholder="Enter URL for right frame">
+        </div>
+        <iframe id="iframe2" src="about:blank" sandbox="allow-scripts allow-same-origin"></iframe>
+      </div>
+    </div>
+    <button id="toggleBookmarks">≡</button>
+    <button id="addBookmark">+</button>
+    <div class="offcanvas" id="bookmarksOffcanvas">
+      <h2>Bookmarks</h2>
+      <div id="bookmarks"></div>
+    </div>
+    <script>
+      function loadURL(inputId, iframeId) {
+        const input = document.getElementById(inputId);
+        const iframe = document.getElementById(iframeId);
+        input.addEventListener('change', function() {
+          loadIframe(this.value, iframe);
+        });
+      }
+
+      function loadIframe(url, iframe) {
+        url = url.trim();
+        if (url !== "") {
+          if (!url.match(/^(http|https):\/\//)) {
+            url = 'http://' + url;
+          }
+          iframe.src = url;
+        }
+      }
+
+      function addBookmark() {
+        const url1 = document.getElementById('url1').value.trim();
+        const url2 = document.getElementById('url2').value.trim();
+        if (url1 || url2) {
+          let bookmarks = JSON.parse(localStorage.getItem('bookmarks') || '[]');
+          const newBookmark = { url1, url2, timestamp: Date.now() };
+          bookmarks.unshift(newBookmark);
+          localStorage.setItem('bookmarks', JSON.stringify(bookmarks));
+          displayBookmarks();
+        }
+      }
+
+      function deleteBookmark(index) {
+        let bookmarks = JSON.parse(localStorage.getItem('bookmarks') || '[]');
+        bookmarks.splice(index, 1);
+        localStorage.setItem('bookmarks', JSON.stringify(bookmarks));
+        displayBookmarks();
+      }
+
+      function displayBookmarks() {
+        const bookmarksContainer = document.getElementById('bookmarks');
+        const bookmarks = JSON.parse(localStorage.getItem('bookmarks') || '[]');
+        bookmarksContainer.innerHTML = '';
+        bookmarks.forEach((bookmark, index) => {
+          const bookmarkElement = document.createElement('div');
+          bookmarkElement.className = 'bookmark';
+          const bookmarkText = document.createElement('span');
+          bookmarkText.className = 'bookmark-text';
+          bookmarkText.textContent = `${new URL(bookmark.url1 || bookmark.url2).hostname}`;
+          bookmarkElement.appendChild(bookmarkText);
+
+          const deleteButton = document.createElement('button');
+          deleteButton.className = 'delete-bookmark';
+          deleteButton.textContent = '×';
+          deleteButton.onclick = (e) => {
+            e.stopPropagation();
+            deleteBookmark(index);
+          };
+          bookmarkElement.appendChild(deleteButton);
+
+          bookmarkElement.onclick = () => {
+            if (bookmark.url1) {
+              document.getElementById('url1').value = bookmark.url1;
+              loadIframe(bookmark.url1, document.getElementById('iframe1'));
+            }
+            if (bookmark.url2) {
+              document.getElementById('url2').value = bookmark.url2;
+              loadIframe(bookmark.url2, document.getElementById('iframe2'));
+            }
+          };
+          bookmarksContainer.appendChild(bookmarkElement);
+        });
+      }
+
+      loadURL('url1', 'iframe1');
+      loadURL('url2', 'iframe2');
+      document.getElementById('addBookmark').addEventListener('click', addBookmark);
+      document.getElementById('toggleBookmarks').addEventListener('click', () => {
+        document.getElementById('bookmarksOffcanvas').classList.toggle('active');
+        document.getElementById('mainContainer').classList.toggle('sidebar-open');
+        document.body.classList.toggle('sidebar-open');
+      });
+      displayBookmarks();
+    </script>
+  </body>
+</html>
